@@ -3,372 +3,333 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Badminton Admin Control</title>
+    <title>SmashX Tournament v18.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap');
-        body { font-family: 'Kanit', sans-serif; background-color: #f8fafc; }
-        .tab-active { border-bottom: 4px solid #4f46e5; color: #4f46e5; font-weight: bold; }
+        @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&family=Orbitron:wght@400;700;900&display=swap');
+        
+        :root {
+            --primary: #00f2ff;
+            --accent: #22c55e;
+            --dark: #020617;
+            --card: rgba(15, 23, 42, 0.7);
+        }
+
+        body { 
+            font-family: 'Kanit', sans-serif; 
+            background: radial-gradient(circle at top right, #0f172a, #020617);
+            color: #f8fafc; 
+            margin: 0; 
+            min-height: 100vh; 
+        }
+
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+        
+        .glass { 
+            background: var(--card); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+        }
+
+        /* Skill Dots Styling */
+        .dot { 
+            width: 44px; height: 44px; border-radius: 12px; 
+            background: #1e293b; border: 2px solid #334155; 
+            display: flex; align-items: center; justify-content: center; 
+            font-weight: 800; cursor: pointer; transition: 0.2s ease; 
+            position: relative; z-index: 5;
+        }
+        .dot.active { 
+            background: linear-gradient(135deg, var(--primary), #0066ff); 
+            border-color: var(--primary); 
+            color: #fff; 
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,242,255,0.4);
+        }
+
+        .line { 
+            position: absolute; top: 50%; left: 0; width: 100%; height: 4px; 
+            background: #1e293b; z-index: 1; transform: translateY(-50%); 
+            border-radius: 10px;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        #toast { 
+            visibility: hidden; min-width: 250px; background: var(--accent); 
+            color: #000; text-align: center; border-radius: 12px; 
+            padding: 16px; position: fixed; bottom: 30px; left: 50%; 
+            transform: translateX(-50%); z-index: 1000; font-weight: bold; 
+        }
+        #toast.show { visibility: visible; animation: slideUp 0.5s, slideDown 0.5s 2.5s; }
+        @keyframes slideUp { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes slideDown { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
     </style>
 </head>
-<body class="p-2 md:p-6">
-    <div id="app" class="max-w-5xl mx-auto">
+<body>
+
+<div id="toast"><i class="fa-solid fa-circle-check mr-2"></i>บันทึกเรียบร้อย!</div>
+
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="flex flex-col items-center justify-start min-h-screen p-6 pt-12">
+    <div class="glass p-10 w-full max-w-md text-center border-t-4 border-cyan-500 mb-8 relative overflow-hidden">
+        <div class="mb-6 inline-flex items-center justify-center w-20 h-20 bg-cyan-500/20 rounded-full text-cyan-400 text-4xl">
+            <i class="fa-solid fa-fire-flame-curved"></i>
+        </div>
+        <h1 class="orbitron text-4xl font-black mb-2 italic tracking-tight text-white">SMASH<span class="text-cyan-400">X</span></h1>
+        <p class="orbitron text-[10px] tracking-[0.3em] text-slate-400 mb-8 uppercase">Tournament Control</p>
         
-        <!-- LOGIN SECTION -->
-        <div id="loginPage" class="mt-10">
-            <div class="max-w-md mx-auto bg-white p-8 rounded-3xl shadow-xl border-t-8 border-indigo-600">
-                <h2 class="text-2xl font-bold text-center mb-6 text-slate-800">Badminton System</h2>
-                <div class="space-y-4">
-                    <input type="text" id="userIn" placeholder="Username" class="w-full border p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-400">
-                    <input type="password" id="passIn" placeholder="Password" class="w-full border p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-400">
-                    <button onclick="handleLogin()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:shadow-lg transition-all">เข้าสู่ระบบ</button>
-                    <button onclick="viewPublic()" class="w-full text-indigo-600 text-sm font-medium">📢 ดูประกาศโถที่อนุมัติแล้ว (Public)</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- MAIN APP SECTION -->
-        <div id="mainApp" class="hidden">
-            <div class="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm mb-4 border border-slate-200">
-                <div><span id="roleBadge" class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold mr-2"></span> <span id="displayUser" class="text-sm"></span></div>
-                <button onclick="logout()" class="text-red-500 text-sm font-bold border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">Log Out</button>
-            </div>
-
-            <!-- ADMIN NAVIGATION -->
-            <div id="adminNav" class="hidden flex border-b mb-6 bg-white rounded-t-xl">
-                <button onclick="showTab('tabUsers')" class="nav-btn flex-1 py-3 text-sm tab-active" id="btn_tabUsers">จัดการกรรมการ</button>
-                <button onclick="showTab('tabReg')" class="nav-btn flex-1 py-3 text-sm" id="btn_tabReg">จัดกลุ่มนักกีฬา</button>
-                <button onclick="showTab('tabSummary')" class="nav-btn flex-1 py-3 text-sm" id="btn_tabSummary">สรุปผล/อนุมัติ</button>
-            </div>
-
-            <!-- TAB: MANAGE USERS -->
-            <div id="tabUsers" class="admin-only hidden space-y-4">
-                <div class="bg-white p-6 rounded-2xl shadow-sm border">
-                    <h3 class="font-bold text-lg mb-4 text-purple-700">สร้างบัญชีกรรมการ</h3>
-                    <div class="flex flex-col md:flex-row gap-3 mb-6">
-                        <input type="text" id="newU" placeholder="User" class="border p-2 rounded-lg flex-1">
-                        <input type="text" id="newP" placeholder="Pass" class="border p-2 rounded-lg flex-1">
-                        <button onclick="createJudge()" class="bg-purple-600 text-white px-8 py-2 rounded-lg font-bold">เพิ่ม</button>
-                    </div>
-                    <div id="judgeList" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
-                </div>
-            </div>
-
-            <!-- TAB: MANAGE PLAYERS -->
-            <div id="tabReg" class="admin-only hidden bg-white p-6 rounded-2xl shadow-sm border">
-                <h3 class="font-bold text-lg mb-4 text-indigo-700">ลงทะเบียนและจัดกลุ่มพื้นฐาน</h3>
-                <div class="flex gap-2 mb-6">
-                    <input type="text" id="pName" placeholder="ชื่อนักกีฬา" class="flex-1 border p-2 rounded-lg">
-                    <button onclick="addPlayer()" class="bg-indigo-600 text-white px-6 rounded-lg font-bold">+</button>
-                </div>
-                <div id="groupGrid" class="grid grid-cols-1 md:grid-cols-4 gap-4"></div>
-                <div class="mt-6 flex gap-2">
-                    <button onclick="toggleLock()" id="lockBtn" class="flex-1 py-3 rounded-xl font-bold transition-all"></button>
-                    <button onclick="resetAllData()" class="bg-slate-100 text-red-400 px-4 rounded-xl text-xs hover:bg-red-500 hover:text-white transition-all">ล้างข้อมูลทั้งหมด</button>
-                </div>
-            </div>
-
-            <!-- TAB: SUMMARY & APPROVE (ADMIN ONLY) -->
-            <div id="tabSummary" class="admin-only hidden space-y-6">
-                <div class="bg-white p-6 rounded-2xl shadow-md border-t-8 border-indigo-500">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-xl font-bold text-slate-800">จัดการสรุปโถ (Admin Approval)</h3>
-                        <button onclick="approveAll()" class="bg-green-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-green-700">✅ อนุมัติประกาศผล</button>
-                    </div>
-                    <div id="adminSummaryLayout" class="space-y-8"></div>
-                </div>
-            </div>
-
-            <!-- JUDGE INTERFACE -->
-            <div id="judgeArea" class="judge-only hidden space-y-6">
-                <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 mb-4">
-                    <p class="text-indigo-800 text-sm">💡 <b>คำแนะนำ:</b> ปรับแถบเลื่อน (1-5) ตามความสามารถ แล้วกดปุ่ม <b>"บันทึกและส่งคะแนน"</b> ด้านล่างสุด</p>
-                </div>
-                <div id="judgeTasks" class="space-y-4"></div>
-                <button onclick="submitJudgeScores()" class="w-full bg-green-600 text-white py-4 rounded-2xl font-bold text-xl shadow-xl hover:bg-green-700 transition-all">💾 บันทึกและส่งคะแนนประเมิน</button>
-            </div>
-        </div>
-
-        <!-- PUBLIC SECTION -->
-        <div id="publicPage" class="hidden animate-fade-in">
-            <div id="publicContent"></div>
+        <div class="space-y-4">
+            <input type="text" id="u" placeholder="USERNAME" class="w-full p-4 rounded-xl bg-slate-900/50 border border-slate-700 outline-none focus:border-cyan-500 text-white transition-all">
+            <input type="password" id="p" placeholder="PASSWORD" class="w-full p-4 rounded-xl bg-slate-900/50 border border-slate-700 outline-none focus:border-cyan-500 text-white transition-all">
+            <button onclick="login()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-4 rounded-xl font-black orbitron shadow-lg shadow-cyan-500/20 hover:scale-[1.02] active:scale-95 transition-all">ENTER</button>
         </div>
     </div>
+    <div id="publicPots" class="w-full max-w-4xl space-y-6"></div>
+</div>
 
-    <script>
-        // --- ⚙️ DATABASE & LOGIC ---
-        let db = JSON.parse(localStorage.getItem('BadmintonFinalDB')) || {
-            users: [{ user: 'admin', pass: '1234', role: 'admin' }],
-            players: [],
-            isLocked: false,
-            isApproved: false // สถานะการประกาศผล
-        };
+<!-- MAIN APP -->
+<div id="app" class="hidden min-h-screen flex flex-col">
+    <header class="sticky top-0 z-[100] bg-slate-950/80 backdrop-blur-xl border-b border-white/5 px-6 py-4">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <h2 class="orbitron font-black text-xl italic tracking-tighter">SMASH<span class="text-cyan-400">X</span></h2>
+            </div>
+            <div class="flex items-center gap-4">
+                <span id="displayUser" class="text-[10px] orbitron text-slate-500 font-bold"></span>
+                <button onclick="location.reload()" class="text-red-400 orbitron text-[10px] font-bold bg-red-400/10 px-3 py-1.5 rounded-lg hover:bg-red-400 hover:text-white transition-all">LOGOUT</button>
+            </div>
+        </div>
+        <div class="max-w-6xl mx-auto mt-4 flex gap-4 overflow-x-auto no-scrollbar" id="nav"></div>
+    </header>
 
-        const cats = [
-            {id:'move', n:'วิ่งคอร์ต'}, {id:'save', n:'ตีเซฟ'}, {id:'smash', n:'ตบ'},
-            {id:'place', n:'วางลูก'}, {id:'back', n:'Backhand'}, {id:'body', n:'ร่างกาย'}
-        ];
+    <main class="flex-1 max-w-6xl mx-auto w-full p-6 pb-24">
+        <div id="tabPlayers" class="hidden space-y-4 max-w-xl mx-auto">
+            <div class="glass p-6 flex gap-3 shadow-xl">
+                <input type="text" id="newP" placeholder="ชื่อ-นามสกุล นักกีฬา" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-4 outline-none text-white focus:border-cyan-500">
+                <button onclick="addP()" class="bg-white text-black px-8 rounded-xl font-black">เพิ่ม</button>
+            </div>
+            <div id="listP" class="glass divide-y divide-white/5"></div>
+        </div>
 
-        function save() { localStorage.setItem('BadmintonFinalDB', JSON.stringify(db)); }
+        <div id="tabJudges" class="hidden space-y-4 max-w-2xl mx-auto">
+            <div class="glass p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input type="text" id="newJU" placeholder="JUDGE ID" class="bg-slate-900 border border-slate-700 rounded-xl p-3 outline-none text-white">
+                <input type="password" id="newJP" placeholder="PASS" class="bg-slate-900 border border-slate-700 rounded-xl p-3 outline-none text-white">
+                <button onclick="addJ()" class="bg-blue-600 text-white rounded-xl font-bold">เพิ่มกรรมการ</button>
+            </div>
+            <div id="listJ" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
 
-        let currentUser = null;
+        <div id="tabGroups" class="hidden"><div id="groupGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"></div></div>
+        
+        <div id="tabEval" class="hidden space-y-6">
+            <div id="evalTabs" class="flex gap-2 overflow-x-auto no-scrollbar p-1"></div>
+            <div id="evalList" class="flex flex-col gap-8 max-w-2xl mx-auto"></div>
+        </div>
 
-        function handleLogin() {
-            const u = document.getElementById('userIn').value;
-            const p = document.getElementById('passIn').value;
-            const found = db.users.find(x => x.user === u && x.pass === p);
-            if (found) {
-                currentUser = found;
-                document.getElementById('loginPage').classList.add('hidden');
-                document.getElementById('mainApp').classList.remove('hidden');
-                document.getElementById('roleBadge').innerText = found.role === 'admin' ? 'ADMIN' : 'JUDGE';
-                document.getElementById('displayUser').innerText = `คุณ ${found.user}`;
-                
-                if (found.role === 'admin') {
-                    document.getElementById('adminNav').classList.remove('hidden');
-                    showTab('tabUsers');
-                } else {
-                    document.getElementById('judgeArea').classList.remove('hidden');
-                    renderJudgeTasks();
-                }
-            } else { alert("รหัสผ่านไม่ถูกต้อง"); }
+        <div id="tabSummary" class="hidden max-w-3xl mx-auto space-y-10"><div id="rankCont" class="space-y-12"></div></div>
+        
+        <div id="tabAdminMaster" class="hidden max-w-5xl mx-auto space-y-10">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-blue-500/10 p-6 rounded-3xl border border-blue-500/20">
+                <h2 class="orbitron text-2xl font-black italic">MASTER <span class="text-blue-500">CONTROL</span></h2>
+                <button onclick="publishPots()" class="bg-green-500 text-white px-10 py-4 rounded-2xl font-black orbitron">PUBLISH RESULTS</button>
+            </div>
+            <div id="masterRankCont" class="space-y-16"></div>
+        </div>
+    </main>
+</div>
+
+<script>
+let state = JSON.parse(localStorage.getItem('SmashX_v18')) || {
+    players: [],
+    users: [{u:'admin', p:'1234', r:'admin'}],
+    evals: {},
+    judgeGroups: {},
+    manualPots: {},
+    isPublished: false
+};
+let curUser = null;
+let curEvalG = 1;
+let viewingJudge = null;
+
+const meta = {
+    1: { n: 'ELITE', c: 'text-yellow-400', bc: 'border-yellow-400', b: 15, m: '🥇', grad: 'from-yellow-400/20 to-transparent' },
+    2: { n: 'PRO', c: 'text-zinc-300', bc: 'border-zinc-300', b: 10, m: '🥈', grad: 'from-zinc-300/20 to-transparent' },
+    3: { n: 'UPPER', c: 'text-orange-500', bc: 'border-orange-500', b: 5, m: '🥉', grad: 'from-orange-500/20 to-transparent' },
+    4: { n: 'LOWER', c: 'text-slate-500', bc: 'border-slate-500', b: 0, m: '🎖️', grad: 'from-slate-500/10 to-transparent' }
+};
+
+const skills = [
+    {id:'move', n:'Footwork', icon:'fa-shoe-prints', d1:'เคลื่อนที่ช้า/ขาตาย', d5:'สเต็ปไว/เข้าถึงลูกเร็ว'},
+    {id:'power', n:'Power', icon:'fa-bolt-lightning', d1:'พละกำลังน้อย/เหนื่อยง่าย', d5:'แรงดี/ฟิต/ปะทะหนัก'},
+    {id:'smash', n:'Smash', icon:'fa-fire', d1:'ลูกเบา/ไม่กด/รับง่าย', d5:'ตบหนัก/ทิศทางคม/ฝัง'},
+    {id:'place', n:'Control', icon:'fa-crosshairs', d1:'วางลูกไม่แม่น/เสียเองบ่อย', d5:'คุมเกมได้/หยอด-วางจุดแม่น'},
+    {id:'def', n:'Defense', icon:'fa-shield-halved', d1:'รับลูกตบไม่ได้/หลุดง่าย', d5:'รับเหนียว/สวนกลับได้ดี'},
+    {id:'tech', n:'Tactics', icon:'fa-brain', d1:'เบสิกน้อย/ขาดเชิง', d5:'เหลี่ยมจัด/อ่านเกมขาด'}
+];
+
+function save() { localStorage.setItem('SmashX_v18', JSON.stringify(state)); renderPublicPots(); }
+
+function login() {
+    const user = document.getElementById('u').value;
+    const pass = document.getElementById('p').value;
+    const found = state.users.find(x => x.u === user && x.p === pass);
+    if(found) {
+        curUser = found;
+        document.getElementById('loginPage').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        document.getElementById('displayUser').innerText = `@${found.u}`;
+        renderNav();
+        go(curUser.r === 'admin' ? 'tabPlayers' : 'tabGroups');
+    } else alert('Error!');
+}
+
+function renderNav() {
+    const nav = document.getElementById('nav');
+    const items = curUser.r === 'admin' ? 
+        [{id:'tabPlayers', n:'นักกีฬา', i:'fa-users'}, {id:'tabJudges', n:'กรรมการ', i:'fa-gavel'}, {id:'tabAdminMaster', n:'MASTER SWAP', i:'fa-shuffle'}] :
+        [{id:'tabGroups', n:'แบ่งกลุ่ม', i:'fa-layer-group'}, {id:'tabEval', n:'ประเมิน', i:'fa-clipboard-check'}, {id:'tabSummary', n:'MY RANK', i:'fa-trophy'}];
+    nav.innerHTML = items.map(i => `<button onclick="go('${i.id}')" id="btn-${i.id}" class="nav-item flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold opacity-40 transition-all"><i class="fa-solid ${i.i}"></i>${i.n}</button>`).join('');
+}
+
+function go(id, judgeU = null) {
+    viewingJudge = judgeU;
+    document.querySelectorAll('main > div').forEach(d => d.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('opacity-100', 'bg-cyan-500/10', 'text-cyan-400'));
+    const activeBtn = document.getElementById('btn-'+id);
+    if(activeBtn) { activeBtn.classList.replace('opacity-40', 'opacity-100'); activeBtn.classList.add('bg-cyan-500/10', 'text-cyan-400'); }
+
+    if(id === 'tabPlayers') renderPlayers();
+    if(id === 'tabJudges') renderJudges();
+    if(id === 'tabGroups') renderGroups();
+    if(id === 'tabEval') renderEval();
+    if(id === 'tabSummary') renderSummary();
+    if(id === 'tabAdminMaster') renderMasterSummary();
+}
+
+// ---------------------------------------------------------
+// แก้ไขจุดสำคัญ: อัปเดตเฉพาะจุด ไม่ Re-render ทั้งหน้า (No Flash)
+// ---------------------------------------------------------
+function setScore(pid, sid, v) {
+    if(!state.evals[curUser.u]) state.evals[curUser.u]={};
+    if(!state.evals[curUser.u][pid]) state.evals[curUser.u][pid]={};
+    state.evals[curUser.u][pid][sid] = v;
+    save();
+
+    // อัปเดตเฉพาะปุ่มในแถวทักษะที่กด (ไม่ต้องเรียก renderEval)
+    const row = document.getElementById(`row-${pid}-${sid}`);
+    if(row) {
+        // อัปเดตปุ่มตัวเลข
+        row.querySelectorAll('.dot').forEach(btn => {
+            if(parseInt(btn.innerText) === v) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+        // อัปเดตตัวเลขคะแนนใหญ่ด้านบน
+        const scoreDisplay = document.getElementById(`score-${pid}-${sid}`);
+        if(scoreDisplay) {
+            scoreDisplay.innerText = v;
+            scoreDisplay.classList.replace('text-slate-800', 'text-cyan-400');
         }
+    }
+}
 
-        // --- 👤 ADMIN: MANAGE JUDGES ---
-        function createJudge() {
-            const u = document.getElementById('newU').value.trim();
-            const p = document.getElementById('newP').value.trim();
-            if(!u || !p) return;
-            db.users.push({ user: u, pass: p, role: 'judge' });
-            save(); renderJudgeList();
-            document.getElementById('newU').value = ''; document.getElementById('newP').value = '';
-        }
-
-        function renderJudgeList() {
-            const list = document.getElementById('judgeList');
-            list.innerHTML = db.users.filter(x => x.role === 'judge').map(x => `
-                <div class="flex justify-between p-2 bg-slate-50 border rounded-lg text-sm">
-                    <span>👤 ${x.user}</span> <span class="text-slate-400">Pass: ${x.pass}</span>
-                </div>
-            `).join('');
-        }
-
-        // --- 🏸 ADMIN: MANAGE PLAYERS ---
-        function addPlayer() {
-            const n = document.getElementById('pName').value.trim();
-            if(!n) return;
-            db.players.push({ id: Date.now(), name: n, group: 0, evals: {}, manualPot: null });
-            save(); renderAdminReg();
-            document.getElementById('pName').value = '';
-        }
-
-        function renderAdminReg() {
-            const grid = document.getElementById('groupGrid');
-            grid.innerHTML = '';
-            const av = db.players.filter(p => p.group === 0);
-            for (let i = 1; i <= 4; i++) {
-                const ig = db.players.filter(p => p.group === i);
-                grid.innerHTML += `
-                    <div class="bg-white p-3 border rounded-xl shadow-sm">
-                        <p class="font-bold text-xs text-indigo-600 mb-2 underline">กลุ่ม ${i}</p>
-                        <select onchange="moveP(this.value, ${i})" class="w-full text-xs p-1 mb-2 border rounded">
-                            <option value="">+ ดึงรายชื่อ</option>
-                            ${av.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-                        </select>
-                        <div class="space-y-1">${ig.map(p => `<div class="text-[10px] flex justify-between bg-slate-50 p-1 rounded border">${p.name}<button onclick="removeP(${p.id})" class="text-red-400">✕</button></div>`).join('')}</div>
-                    </div>`;
-            }
-            const lBtn = document.getElementById('lockBtn');
-            lBtn.innerText = db.isLocked ? "🔓 ปลดล็อกแก้ไขกลุ่ม" : "🔒 ยืนยันกลุ่ม & เริ่มประเมิน";
-            lBtn.className = db.isLocked ? "flex-1 py-3 rounded-xl font-bold bg-orange-100 text-orange-600" : "flex-1 py-3 rounded-xl font-bold bg-indigo-600 text-white shadow-lg";
-        }
-
-        function moveP(id, g) { if(id) db.players.find(x=>x.id==id).group = g; save(); renderAdminReg(); }
-        function removeP(id) { db.players.find(x=>x.id==id).group = 0; save(); renderAdminReg(); }
-        function toggleLock() { db.isLocked = !db.isLocked; save(); renderAdminReg(); }
-
-        // --- 📊 ADMIN: SUMMARY & MANUAL ADJUST ---
-        function renderAdminSummary() {
-            const cont = document.getElementById('adminSummaryLayout');
-            
-            // คำนวณคะแนนเฉลี่ย
-            let scoredPlayers = db.players.map(p => {
-                const judges = Object.keys(p.evals);
-                let avg = 0;
-                if(judges.length > 0) {
-                    avg = judges.reduce((sum, j) => {
-                        const s = p.evals[j];
-                        return sum + (s.move + s.save + s.smash + s.place + s.back + s.body) / 6;
-                    }, 0) / judges.length;
-                }
-                return { ...p, calculatedAvg: avg };
-            }).sort((a,b) => b.calculatedAvg - a.calculatedAvg);
-
-            const half = Math.ceil(scoredPlayers.length / 2);
-            
-            // แยกตามโถ (ถ้าไม่มี manualPot ให้ใช้ตามที่คำนวณ)
-            const potA = scoredPlayers.filter((p, idx) => (p.manualPot === 'A') || (p.manualPot === null && idx < half));
-            const potB = scoredPlayers.filter((p, idx) => (p.manualPot === 'B') || (p.manualPot === null && idx >= half));
-
-            cont.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    ${renderPotTable("โถบน (Pot A)", potA, 'A')}
-                    ${renderPotTable("โถล่าง (Pot B)", potB, 'B')}
-                </div>
-            `;
-        }
-
-        function renderPotTable(title, list, potType) {
-            return `
-                <div class="border rounded-2xl p-4 bg-white shadow-sm">
-                    <h4 class="font-bold text-lg mb-4 text-slate-700 flex justify-between">
-                        <span>${title}</span>
-                        <span class="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 font-normal">${list.length} คน</span>
-                    </h4>
-                    <div class="space-y-3">
-                        ${list.map(p => {
-                            const judgeKeys = Object.keys(p.evals);
-                            return `
-                            <div class="p-3 border rounded-xl bg-slate-50">
-                                <div class="flex justify-between items-start mb-2">
-                                    <div>
-                                        <div class="font-bold text-slate-800">${p.name}</div>
-                                        <div class="text-[10px] text-indigo-500">คะแนนเฉลี่ย: ${p.calculatedAvg.toFixed(2)}</div>
-                                    </div>
-                                    <div class="flex gap-1">
-                                        <button onclick="manualMove(${p.id}, '${potType === 'A' ? 'B' : 'A'}')" class="text-[10px] bg-white border border-indigo-200 px-2 py-1 rounded-md text-indigo-600 hover:bg-indigo-600 hover:text-white">
-                                            ย้ายไปโถ ${potType === 'A' ? 'B' : 'A'}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="text-[9px] text-slate-400 grid grid-cols-2 gap-1">
-                                    ${judgeKeys.length > 0 ? judgeKeys.map(j => `<span>📍 ${j}: ${calculateJudgeTotal(p.evals[j])}</span>`).join('') : 'ยังไม่มีใครประเมิน'}
-                                </div>
-                            </div>`;
-                        }).join('')}
+function renderEval() {
+    const tabs = document.getElementById('evalTabs');
+    tabs.innerHTML = [1,2,3,4].map(g => `<button onclick="curEvalG=${g}; renderEval();" class="flex-1 p-3.5 rounded-2xl border-2 orbitron text-[11px] font-black transition-all ${curEvalG===g ? 'bg-cyan-500 border-cyan-500 text-black shadow-lg shadow-cyan-500/20':'bg-slate-900 border-white/5 text-slate-500'}">${meta[g].n}</button>`).join('');
+    const players = state.players.filter(p => state.judgeGroups[curUser.u][p.id] == curEvalG);
+    document.getElementById('evalList').innerHTML = players.map(p => {
+        const sc = (state.evals[curUser.u] && state.evals[curUser.u][p.id]) ? state.evals[curUser.u][p.id] : {};
+        return `<div class="glass p-8 space-y-10 border-l-4 ${meta[curEvalG].bc}">
+            <div class="flex justify-between items-start">
+                <div><h4 class="text-2xl font-black text-white">${p.name}</h4><p class="${meta[curEvalG].c} text-[10px] orbitron font-black uppercase tracking-widest">${meta[curEvalG].n} TIER (+${meta[curEvalG].b} PTS)</p></div>
+                <button onclick="confirm()" class="bg-white text-black px-6 py-2 rounded-xl text-xs font-black shadow-lg">CONFIRM</button>
+            </div>
+            <div class="grid gap-12">
+                ${skills.map(s => `<div class="space-y-5" id="row-${p.id}-${s.id}">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-cyan-400"><i class="fa-solid ${s.icon}"></i></div><span class="text-sm font-bold text-slate-300 uppercase orbitron tracking-tighter">${s.n}</span></div>
+                        <span id="score-${p.id}-${s.id}" class="orbitron text-3xl font-black ${sc[s.id]?'text-cyan-400':'text-slate-800'}">${sc[s.id]||'0'}</span>
                     </div>
-                </div>
-            `;
-        }
-
-        function calculateJudgeTotal(s) { return ((s.move + s.save + s.smash + s.place + s.back + s.body)/6).toFixed(2); }
-
-        function manualMove(pid, target) {
-            const p = db.players.find(x => x.id == pid);
-            p.manualPot = target;
-            save(); renderAdminSummary();
-        }
-
-        function approveAll() {
-            db.isApproved = true;
-            save();
-            alert("✅ อนุมัติประกาศผลเรียบร้อย! คนทั่วไปสามารถดูได้แล้ว");
-        }
-
-        // --- ✍️ JUDGE: SCORING ---
-        function renderJudgeTasks() {
-            const cont = document.getElementById('judgeTasks');
-            if(!db.isLocked) { cont.innerHTML = "<div class='text-center p-10 text-slate-400'>รอ Admin จัดกลุ่มนักกีฬา...</div>"; return; }
-            
-            cont.innerHTML = db.players.map(p => {
-                const s = p.evals[currentUser.user] || { move:1, save:1, smash:1, place:1, back:1, body:1 };
-                return `
-                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                    <h4 class="font-bold text-slate-800 mb-4 border-b pb-2">${p.name}</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                        ${cats.map(c => `
-                            <div class="flex flex-col">
-                                <div class="flex justify-between text-xs mb-1">
-                                    <label class="font-medium text-slate-600">${c.n}</label>
-                                    <b class="text-indigo-600" id="val_${p.id}_${c.id}">${s[c.id]}</b>
-                                </div>
-                                <input type="range" min="1" max="5" value="${s[c.id]}" 
-                                    oninput="updateValUI(${p.id}, '${c.id}', this.value)" 
-                                    class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
-                            </div>
-                        `).join('')}
+                    <div class="px-2">
+                        <div class="flex justify-between relative"><div class="line"></div>${[1,2,3,4,5].map(v => `<div onclick="setScore(${p.id},'${s.id}',${v})" class="dot ${sc[s.id]==v?'active':''}">${v}</div>`).join('')}</div>
+                        <div class="flex justify-between mt-4 text-[9px] font-bold text-slate-500"><span>1: ${s.d1}</span><span>5: ${s.d5}</span></div>
                     </div>
-                </div>`;
-            }).join('');
-        }
+                </div>`).join('')}
+            </div>
+        </div>`;
+    }).join('');
+}
 
-        function updateValUI(pid, cid, v) {
-            document.getElementById(`val_${pid}_${cid}`).innerText = v;
-            const p = db.players.find(x => x.id == pid);
-            if(!p.evals[currentUser.user]) p.evals[currentUser.user] = { move:1, save:1, smash:1, place:1, back:1, body:1 };
-            p.evals[currentUser.user][cid] = parseInt(v);
-        }
-
-        function submitJudgeScores() {
-            save();
-            alert("💾 บันทึกคะแนนของคุณเรียบร้อยแล้ว!");
-        }
-
-        // --- 📢 PUBLIC: VIEW APPROVED ONLY ---
-        function viewPublic() {
-            document.getElementById('loginPage').classList.add('hidden');
-            document.getElementById('publicPage').classList.remove('hidden');
-            const cont = document.getElementById('publicContent');
-
-            if(!db.isApproved) {
-                cont.innerHTML = `
-                    <div class="text-center mt-20">
-                        <div class="text-6xl mb-4 text-slate-300">⏳</div>
-                        <h2 class="text-xl font-bold text-slate-600">อยู่ระหว่างการตรวจสอบคะแนน</h2>
-                        <p class="text-slate-400">เมื่อ Admin อนุมัติแล้ว โถจะแสดงที่นี่</p>
-                        <button onclick="location.reload()" class="mt-6 text-indigo-600 underline">กลับหน้าแรก</button>
-                    </div>`;
-                return;
-            }
-
-            // คำนวณเพื่อจัดโถ (Logic เดียวกับ Summary)
-            let scored = db.players.map(p => {
-                const js = Object.values(p.evals);
-                let avg = 0;
-                if(js.length > 0) avg = js.reduce((sum, s) => sum + (s.move + s.save + s.smash + s.place + s.back + s.body)/6, 0) / js.length;
-                return { ...p, avg };
-            }).sort((a,b) => b.avg - a.avg);
-
-            const half = Math.ceil(scored.length / 2);
-            const potA = scored.filter((p, idx) => (p.manualPot === 'A') || (p.manualPot === null && idx < half));
-            const potB = scored.filter((p, idx) => (p.manualPot === 'B') || (p.manualPot === null && idx >= half));
-
-            cont.innerHTML = `
-                <div class="p-4 bg-indigo-900 text-white text-center rounded-b-3xl shadow-xl mb-8">
-                    <h1 class="text-2xl font-bold">ประกาศโถนักกีฬา (Official)</h1>
-                    <button onclick="location.reload()" class="text-[10px] opacity-60">← กลับหน้าล็อกอิน</button>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
-                    <div class="bg-white rounded-3xl p-6 shadow-xl border-t-8 border-yellow-500">
-                        <h3 class="text-xl font-bold mb-4">🏆 โถบน (A)</h3>
-                        <div class="space-y-2">${potA.map(p => `<div class="p-3 bg-slate-50 rounded-xl border flex justify-between"><span class="font-bold">${p.name}</span><span class="text-indigo-600">${p.avg.toFixed(2)}</span></div>`).join('')}</div>
-                    </div>
-                    <div class="bg-white rounded-3xl p-6 shadow-xl border-t-8 border-blue-500">
-                        <h3 class="text-xl font-bold mb-4">🏸 โถล่าง (B)</h3>
-                        <div class="space-y-2">${potB.map(p => `<div class="p-3 bg-slate-50 rounded-xl border flex justify-between"><span class="font-bold">${p.name}</span><span class="text-indigo-600">${p.avg.toFixed(2)}</span></div>`).join('')}</div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // --- 🛠 HELPERS ---
-        function showTab(tab) {
-            document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('tab-active'));
-            document.getElementById(tab).classList.remove('hidden');
-            document.getElementById('btn_' + tab).classList.add('tab-active');
-            if(tab === 'tabUsers') renderJudgeList();
-            if(tab === 'tabReg') renderAdminReg();
-            if(tab === 'tabSummary') renderAdminSummary();
-        }
-
-        function resetAllData() {
-            if(confirm("⚠️ คำเตือน: ข้อมูลนักกีฬา บัญชีกรรมการ และคะแนนทั้งหมดจะถูกลบ! ยืนยันหรือไม่?")) {
-                localStorage.removeItem('BadmintonFinalDB');
-                location.reload();
-            }
-        }
-        function logout() { location.reload(); }
-    </script>
+// REST OF THE FUNCTIONS (SAME AS v18.0)
+function addP() { const n = document.getElementById('newP').value.trim(); if(!n || state.players.some(p => p.name === n)) return; state.players.push({id: Date.now(), name: n}); save(); renderPlayers(); document.getElementById('newP').value = ''; }
+function renderPlayers() { document.getElementById('listP').innerHTML = state.players.map(p => `<div class="p-4 px-6 flex justify-between"><span>${p.name}</span><button onclick="delP(${p.id})" class="text-red-500"><i class="fa-solid fa-trash-can"></i></button></div>`).join(''); }
+function delP(id) { if(confirm('Del?')) { state.players = state.players.filter(x => x.id !== id); save(); renderPlayers(); } }
+function addJ() { const u = document.getElementById('newJU').value.trim(); const p = document.getElementById('newJP').value.trim(); if(u && p) { state.users.push({u, p, r:'judge'}); save(); renderJudges(); } }
+function renderJudges() { document.getElementById('listJ').innerHTML = state.users.filter(x=>x.r==='judge').map(j => `<div class="glass p-5 flex justify-between items-center"><span class="font-bold">${j.u}</span><button onclick="go('tabSummary', '${j.u}')" class="text-[10px] bg-cyan-500 text-black font-black px-4 py-2 rounded-lg">VIEW</button></div>`).join(''); }
+function renderGroups() {
+    const u = curUser.u; if(!state.judgeGroups[u]) state.judgeGroups[u] = {};
+    const waiting = state.players.filter(p => !state.judgeGroups[u][p.id]);
+    let html = `<div class="lg:col-span-4 glass p-6 mb-4 text-center border-dashed border-2 border-white/10"><div class="flex flex-wrap justify-center gap-2">${waiting.map(p => `<span class="bg-slate-800 px-4 py-1.5 rounded-xl text-xs font-bold">${p.name}</span>`).join('')}</div></div>`;
+    [1,2,3,4].forEach(g => {
+        const pInG = state.players.filter(p => state.judgeGroups[u][p.id] == g);
+        html += `<div class="glass p-6 space-y-4 border-b-4 ${meta[g].bc}">
+            <h4 class="${meta[g].c} orbitron font-black text-lg">${meta[g].m} ${meta[g].n}</h4>
+            <select onchange="moveP(this.value, ${g})" class="w-full bg-slate-950/50 border border-white/10 p-3 rounded-xl text-xs outline-none"><option value="">+ เพิ่ม</option>${waiting.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}</select>
+            <div class="space-y-2">${pInG.map(p => `<div class="flex justify-between bg-white/5 p-3 rounded-xl text-xs"><span>${p.name}</span><button onclick="moveP(${p.id}, null)" class="text-red-400">✕</button></div>`).join('')}</div>
+        </div>`;
+    });
+    document.getElementById('groupGrid').innerHTML = html;
+}
+function moveP(id, g) { if(id) state.judgeGroups[curUser.u][id] = g; save(); renderGroups(); }
+function confirm() { const t=document.getElementById('toast'); t.className='show'; setTimeout(()=>t.className='',2000); }
+function renderSummary() {
+    const u = viewingJudge || curUser.u;
+    let html = `<div class="text-center"><h2 class="orbitron text-3xl font-black italic uppercase">${u}</h2></div>`;
+    [1,2,3,4].forEach(g => {
+        const players = state.players.filter(p => state.judgeGroups[u] && state.judgeGroups[u][p.id] == g);
+        if(!players.length) return;
+        const ranked = players.map(p => {
+            const sc = (state.evals[u] && state.evals[u][p.id]) ? state.evals[u][p.id] : {};
+            const total = Object.values(sc).reduce((a,b)=>a+b, 0);
+            return { ...p, score: total > 0 ? total + meta[g].b : 0 };
+        }).sort((a,b) => b.score - a.score);
+        html += `<div class="space-y-4"><div class="flex items-center gap-2 border-b border-white/5 pb-2"><h3 class="${meta[g].c} orbitron font-black uppercase text-sm">${meta[g].n}</h3></div><div class="grid gap-3">${ranked.map((p,idx) => `<div class="glass p-5 flex justify-between items-center bg-gradient-to-r ${meta[g].grad}"><span>#${idx+1} ${p.name}</span><span class="orbitron text-2xl font-black">${p.score}</span></div>`).join('')}</div></div>`;
+    });
+    document.getElementById('rankCont').innerHTML = html;
+}
+function renderMasterSummary() {
+    const cont = document.getElementById('masterRankCont');
+    const judges = state.users.filter(x => x.r === 'judge');
+    let masterData = state.players.map(p => {
+        let sum = 0, count = 0;
+        judges.forEach(j => { if(state.evals[j.u] && state.evals[j.u][p.id]) { const total = Object.values(state.evals[j.u][p.id]).reduce((a,b)=>a+b, 0); if(total > 0) { sum += (total + meta[state.judgeGroups[j.u][p.id] || 4].b); count++; } } });
+        return { ...p, avg: count > 0 ? sum / count : 0 };
+    });
+    if (Object.keys(state.manualPots).length === 0) { masterData.sort((a,b) => b.avg - a.avg); const mid = Math.ceil(masterData.length / 2); masterData.forEach((p, i) => state.manualPots[p.id] = (i < mid ? 'upper' : 'lower')); }
+    const renderPot = (title, color, type, target) => {
+        const data = masterData.filter(p => state.manualPots[p.id] === type);
+        return `<div class="glass p-6 space-y-6"><h3 class="orbitron font-black text-center ${color}">${title}</h3><div class="grid gap-3">${data.map(p => `<div class="bg-slate-900 p-4 rounded-2xl flex justify-between items-center"><div><p class="font-bold">${p.name}</p><p class="text-[10px] text-cyan-400 font-bold">AVG: ${p.avg.toFixed(1)}</p></div><button onclick="swapP(${p.id}, '${target}')" class="w-10 h-10 bg-white/5 rounded-xl"><i class="fa-solid fa-right-left"></i></button></div>`).join('')}</div></div>`;
+    };
+    cont.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8">${renderPot('UPPER POT', 'text-cyan-400', 'upper', 'lower')}${renderPot('LOWER POT', 'text-purple-400', 'lower', 'upper')}</div>`;
+}
+function swapP(id, to) { state.manualPots[id] = to; save(); renderMasterSummary(); }
+function publishPots() { state.isPublished = true; save(); confirm(); }
+function renderPublicPots() {
+    const cont = document.getElementById('publicPots');
+    if(!state.isPublished) { cont.innerHTML = `<div class="text-center p-12 glass opacity-40"><p class="orbitron text-sm font-bold tracking-[0.5em]">--- AWAITING RESULTS ---</p></div>`; return; }
+    const upper = state.players.filter(p => state.manualPots[p.id] === 'upper').sort((a,b) => a.name.localeCompare(b.name, 'th'));
+    const lower = state.players.filter(p => state.manualPots[p.id] === 'lower').sort((a,b) => a.name.localeCompare(b.name, 'th'));
+    cont.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="glass p-8 border-t-4 border-cyan-500"><h4 class="orbitron text-cyan-400 text-center font-black mb-8">UPPER POT</h4><div class="grid gap-3">${upper.map(p => `<p class="bg-white/5 py-3 rounded-xl text-center font-bold uppercase">${p.name}</p>`).join('')}</div></div>
+        <div class="glass p-8 border-t-4 border-purple-500"><h4 class="orbitron text-purple-400 text-center font-black mb-8">LOWER POT</h4><div class="grid gap-3">${lower.map(p => `<p class="bg-white/5 py-3 rounded-xl text-center font-bold uppercase">${p.name}</p>`).join('')}</div></div>
+    </div>`;
+}
+renderPublicPots();
+</script>
 </body>
 </html>

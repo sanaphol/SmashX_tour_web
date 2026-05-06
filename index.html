@@ -1,22 +1,19 @@
 function login() {
-    // ดึงค่ามาแล้วสั่ง ลบช่องว่าง (trim) และเปลี่ยนเป็นตัวเล็กทั้งหมด (toLowerCase)
     const userInput = document.getElementById('u').value.trim().toLowerCase();
     const passInput = document.getElementById('p').value.trim();
     
-    // ค้นหาโดยการแปลงค่าในระบบ (state.users) ให้เป็นตัวเล็กก่อนเทียบด้วยเช่นกัน
     const found = state.users.find(x => 
-        x.u.toLowerCase() === userInput && 
-        x.p === passInput
+        x.u.toLowerCase() === userInput && x.p === passInput
     );
 
-    if(found) {
+    if (found) {
         curUser = found;
         document.getElementById('loginPage').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         document.getElementById('displayUser').innerText = `@${found.u}`;
         renderNav();
         go(curUser.r === 'admin' ? 'tabPlayers' : 'tabGroups');
-    } else { 
-        alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง! (ในมือถือกรุณาตรวจสอบตัวพิมพ์เล็ก-ใหญ่ที่รหัสผ่านด้วยครับ)'); 
+    } else {
+        alert('เข้าไม่ได้! ตรวจสอบ Username/Pass อีกครั้ง');
     }
 }

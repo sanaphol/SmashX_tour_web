@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmashX Tournament Cloud v2</title>
+    <title>SmashX Tournament Firestore v1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK: Firestore -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&family=Orbitron:wght@400;700;900&display=swap');
         :root { --primary: #00f2ff; --accent: #22c55e; --dark: #020617; --card: rgba(15, 23, 42, 0.7); }
@@ -100,19 +100,20 @@
 </div>
 
 <script>
-// --- 1. CONFIG (แก้ตรงนี้) ---
+// --- 1. FIREBASE CONFIG: Firestore Database กลาง ---
 const firebaseConfig = {
-    apiKey: "ใส่_API_KEY",
-    authDomain: "โปรเจกต์.firebaseapp.com",
-    databaseURL: "https://โปรเจกต์-default-rtdb.firebaseio.com",
-    projectId: "โปรเจกต์",
-    storageBucket: "โปรเจกต์.appspot.com",
-    messagingSenderId: "เลขไอดี",
-    appId: "เลขแอปไอดี"
+  apiKey: "AIzaSyCqFKrmhAodsZ8wRXovnKtatLGKHvU6LEo",
+  authDomain: "smashx-tour.firebaseapp.com",
+  projectId: "smashx-tour",
+  storageBucket: "smashx-tour.firebasestorage.app",
+  messagingSenderId: "664144888956",
+  appId: "1:664144888956:web:9284bd6b26f926359ef5f9",
+  measurementId: "G-CTSJB5YPN9"
 };
 
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+const db = firebase.firestore();
+const stateDoc = db.collection('smashx').doc('main_state');
 
 // --- 2. STATE ---
 let state = {
@@ -127,23 +128,36 @@ let state = {
 let curUser = null;
 let curEvalG = 1;
 
-// --- 3. CORE SYNC (หัวใจหลักที่ทำให้เห็นข้อมูลพร้อมกัน) ---
-db.ref('smashx_tournament_data').on('value', (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-        state = data;
-        // ป้องกัน Error หากข้อมูลบางตัวยังไม่มีใน Database
-        if(!state.players) state.players = [];
-        if(!state.users) state.users = [{u:'admin', p:'1234', r:'admin'}];
-        if(!state.judgeGroups) state.judgeGroups = {};
-        if(!state.evals) state.evals = {};
-        
-        refreshActiveUI();
+// --- 3. CORE SYNC: โหลด/อัปเดตข้อมูลจาก Firestore แบบ Real-time ---
+stateDoc.onSnapshot((snapshot) => {
+    if (snapshot.exists) {
+        state = snapshot.data();
+    } else {
+        // ครั้งแรกที่ยังไม่มีข้อมูลใน Firestore ให้สร้าง state เริ่มต้น
+        stateDoc.set(state);
     }
+
+    // ป้องกัน Error หากข้อมูลบางตัวยังไม่มีใน Database
+    if(!state.players) state.players = [];
+    if(!state.users) state.users = [{u:'admin', p:'1234', r:'admin'}];
+    if(!state.judgeGroups) state.judgeGroups = {};
+    if(!state.evals) state.evals = {};
+    if(!state.manualPots) state.manualPots = {};
+
+    refreshActiveUI();
+    renderPublicPots();
+}, (error) => {
+    console.error('Firestore sync error:', error);
+    alert('เชื่อมต่อ Firestore ไม่ได้ กรุณาเช็ก Rules หรือ Firebase Config');
 });
 
 function save() {
-    db.ref('smashx_tournament_data').set(state);
+    stateDoc.set(state)
+        .then(() => renderPublicPots())
+        .catch((error) => {
+            console.error('Save error:', error);
+            alert('บันทึกข้อมูลไม่สำเร็จ กรุณาเช็ก Firestore Rules');
+        });
 }
 
 // --- 4. NAVIGATION & LOGIN ---

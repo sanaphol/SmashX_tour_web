@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmashX Tournament v18.4 (Mobile Optimized)</title>
+    <title>SmashX Tournament v18.4 (Cloud Sync)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&family=Orbitron:wght@400;700;900&display=swap');
         
@@ -82,7 +85,6 @@
         <p class="orbitron text-[10px] tracking-[0.3em] text-slate-400 mb-8 uppercase">Tournament Control</p>
         
         <div class="space-y-4">
-            <!-- เพิ่มการป้องกัน Auto-correct สำหรับมือถือ -->
             <input type="text" id="u" placeholder="USERNAME" 
                    autocorrect="off" autocapitalize="none" spellcheck="false"
                    class="w-full p-4 rounded-xl bg-slate-900/50 border border-slate-700 outline-none focus:border-cyan-500 text-white transition-all">
@@ -147,8 +149,23 @@
 </div>
 
 <script>
-// ดึงข้อมูลหรือตั้งค่าเริ่มต้น
-let state = JSON.parse(localStorage.getItem('SmashX_v18')) || {
+// --- ส่วนที่ 1: การตั้งค่า Firebase ---
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+    projectId: "YOUR_PROJECT",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_ID",
+    appId: "YOUR_APP_ID"
+};
+
+// เริ่มต้น Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// --- ส่วนที่ 2: สถานะแอป (State) ---
+let state = {
     players: [],
     users: [
         {u:'admin', p:'1234', r:'admin'},
@@ -164,6 +181,36 @@ let curUser = null;
 let curEvalG = 1;
 let viewingJudge = null;
 let editingJudge = null;
+
+// ดักฟังข้อมูลจาก Cloud และอัพเดทหน้าจอทันทีเมื่อข้อมูลเปลี่ยน
+db.ref('smashx_data').on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+        state = data;
+        refreshCurrentUI();
+    }
+});
+
+function save() { 
+    db.ref('smashx_data').set(state);
+}
+
+// ฟังก์ชันอัพเดท UI เฉพาะหน้าที่เปิดอยู่
+function refreshCurrentUI() {
+    const activeTab = document.querySelector('main > div:not(.hidden)');
+    if (activeTab) {
+        const id = activeTab.id;
+        if(id === 'tabPlayers') renderPlayers();
+        if(id === 'tabJudges') renderJudges();
+        if(id === 'tabGroups') renderGroups();
+        if(id === 'tabEval') renderEval();
+        if(id === 'tabSummary') renderSummary();
+        if(id === 'tabAdminMaster') renderMasterSummary();
+    }
+    renderPublicPots();
+}
+
+// --- ส่วนที่ 3: Logic ฟังก์ชันต่างๆ (เหมือนเดิม) ---
 
 const meta = {
     1: { n: 'ELITE', c: 'text-yellow-400', bc: 'border-yellow-400', b: 15, m: '🥇', grad: 'from-yellow-400/20 to-transparent' },
@@ -181,20 +228,10 @@ const skills = [
     {id:'tech', n:'Tactics', icon:'fa-brain', d1:'เบสิกน้อย/ขาดเชิง', d5:'เหลี่ยมจัด/อ่านเกมขาด'}
 ];
 
-function save() { 
-    localStorage.setItem('SmashX_v18', JSON.stringify(state)); 
-    renderPublicPots(); 
-}
-
-// ฟังก์ชัน Login ที่แก้ปัญหาเรื่องมือถือ (Case-insensitive & Trim)
 function login() {
     const userInput = document.getElementById('u').value.trim().toLowerCase();
     const passInput = document.getElementById('p').value.trim();
-    
-    // ค้นหาโดยไม่สนตัวพิมพ์เล็กใหญ่สำหรับ Username
-    const found = state.users.find(x => 
-        x.u.toLowerCase() === userInput && x.p === passInput
-    );
+    const found = state.users.find(x => x.u.toLowerCase() === userInput && x.p === passInput);
 
     if (found) {
         curUser = found;
@@ -204,7 +241,7 @@ function login() {
         renderNav();
         go(curUser.r === 'admin' ? 'tabPlayers' : 'tabGroups');
     } else {
-        alert('เข้าไม่ได้! ตรวจสอบ Username (ตัวเล็กหมด) หรือ Password อีกครั้ง');
+        alert('เข้าไม่ได้! ตรวจสอบชื่อหรือรหัสผ่านอีกครั้ง');
     }
 }
 
@@ -226,20 +263,13 @@ function go(id, judgeU = null) {
     });
     const activeBtn = document.getElementById('btn-'+id);
     if(activeBtn) { activeBtn.classList.replace('opacity-40', 'opacity-100'); activeBtn.classList.add('bg-cyan-500/10', 'text-cyan-400'); }
-    
-    if(id === 'tabPlayers') renderPlayers();
-    if(id === 'tabJudges') renderJudges();
-    if(id === 'tabGroups') renderGroups();
-    if(id === 'tabEval') renderEval();
-    if(id === 'tabSummary') renderSummary();
-    if(id === 'tabAdminMaster') renderMasterSummary();
+    refreshCurrentUI();
 }
 
 function addJ() { 
     const u = document.getElementById('newJU').value.trim(); 
     const p = document.getElementById('newJP').value.trim(); 
     if(!u || !p) return;
-
     if(editingJudge) {
         const idx = state.users.findIndex(x => x.u === editingJudge);
         if(idx !== -1) { state.users[idx].u = u; state.users[idx].p = p; }
@@ -249,7 +279,7 @@ function addJ() {
         if(state.users.some(x => x.u.toLowerCase() === u.toLowerCase())) { alert('ชื่อนี้มีอยู่แล้ว!'); return; }
         state.users.push({u, p, r:'judge'});
     }
-    save(); renderJudges();
+    save();
     document.getElementById('newJU').value = ''; document.getElementById('newJP').value = '';
 }
 
@@ -267,7 +297,7 @@ function editJ(username) {
 function delJ(user) {
     if(confirm(`ลบกรรมการ: ${user}?`)) {
         state.users = state.users.filter(x => x.u !== user);
-        save(); renderJudges();
+        save();
     }
 }
 
@@ -292,16 +322,6 @@ function setScore(pid, sid, v) {
     if(!state.evals[curUser.u][pid]) state.evals[curUser.u][pid]={};
     state.evals[curUser.u][pid][sid] = v;
     save();
-    
-    const row = document.getElementById(`row-${pid}-${sid}`);
-    if(row) {
-        row.querySelectorAll('.dot').forEach(btn => {
-            if(parseInt(btn.innerText) === v) btn.classList.add('active');
-            else btn.classList.remove('active');
-        });
-        const scoreDisplay = document.getElementById(`score-${pid}-${sid}`);
-        if(scoreDisplay) { scoreDisplay.innerText = v; scoreDisplay.classList.replace('text-slate-800', 'text-cyan-400'); }
-    }
 }
 
 function renderEval() {
@@ -332,9 +352,9 @@ function renderEval() {
     }).join('') : `<div class="text-center p-12 text-slate-500">ยังไม่มีนักกีฬาในกลุ่มนี้</div>`;
 }
 
-function addP() { const n = document.getElementById('newP').value.trim(); if(!n || state.players.some(p => p.name === n)) return; state.players.push({id: Date.now(), name: n}); save(); renderPlayers(); document.getElementById('newP').value = ''; }
+function addP() { const n = document.getElementById('newP').value.trim(); if(!n || state.players.some(p => p.name === n)) return; state.players.push({id: Date.now(), name: n}); save(); document.getElementById('newP').value = ''; }
 function renderPlayers() { document.getElementById('listP').innerHTML = state.players.map(p => `<div class="p-4 px-6 flex justify-between"><span>${p.name}</span><button onclick="delP(${p.id})" class="text-red-500"><i class="fa-solid fa-trash-can"></i></button></div>`).join(''); }
-function delP(id) { if(confirm('ลบนักกีฬา?')) { state.players = state.players.filter(x => x.id !== id); save(); renderPlayers(); } }
+function delP(id) { if(confirm('ลบนักกีฬา?')) { state.players = state.players.filter(x => x.id !== id); save(); } }
 
 function renderGroups() {
     const u = curUser.u; if(!state.judgeGroups[u]) state.judgeGroups[u] = {};
@@ -350,7 +370,7 @@ function renderGroups() {
     });
     document.getElementById('groupGrid').innerHTML = html;
 }
-function moveP(id, g) { if(id) state.judgeGroups[curUser.u][id] = g; else delete state.judgeGroups[curUser.u][id]; save(); renderGroups(); }
+function moveP(id, g) { if(id) state.judgeGroups[curUser.u][id] = g; else delete state.judgeGroups[curUser.u][id]; save(); }
 
 function confirmToast() { const t=document.getElementById('toast'); t.className='show'; setTimeout(()=>t.className='',2000); }
 
@@ -397,7 +417,7 @@ function renderMasterSummary() {
     cont.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8">${renderPot('UPPER POT', 'text-cyan-400', 'upper', 'lower')}${renderPot('LOWER POT', 'text-purple-400', 'lower', 'upper')}</div>`;
 }
 
-function swapP(id, to) { state.manualPots[id] = to; save(); renderMasterSummary(); }
+function swapP(id, to) { state.manualPots[id] = to; save(); }
 function publishPots() { state.isPublished = true; save(); confirmToast(); }
 
 function renderPublicPots() {
@@ -414,6 +434,7 @@ function renderPublicPots() {
     </div>`;
 }
 
+// เริ่มต้นแสดงผล Pot สาธารณะ
 renderPublicPots();
 </script>
 </body>

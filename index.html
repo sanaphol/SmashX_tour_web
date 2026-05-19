@@ -96,7 +96,10 @@
                     <button onclick="exportBackup()" class="bg-slate-700 text-white px-5 py-3 rounded-xl font-black text-xs">EXPORT JSON</button>
                     <button onclick="document.getElementById('importFile').click()" class="bg-yellow-500 text-black px-5 py-3 rounded-xl font-black text-xs">IMPORT JSON</button>
                     <input id="importFile" type="file" accept="application/json" class="hidden" onchange="importBackup(event)">
+                    <div class="flex gap-3">
+                    <button onclick="recalculatePots(true)" class="bg-cyan-500 text-black px-6 py-3 rounded-xl font-black">RECAL POT</button>
                     <button onclick="publishPots()" class="bg-green-500 text-white px-8 py-3 rounded-xl font-black">PUBLISH</button>
+                </div>
                 </div>
             </div>
             <div id="masterRankCont" class="grid grid-cols-1 md:grid-cols-2 gap-8"></div>
@@ -171,10 +174,6 @@ async function savePatch(patch, action = 'update') {
         alert('Save ถูกเรียกผิดรูปแบบ: ต้องส่งเฉพาะ field ที่ต้องการแก้');
         return;
     }
-
-    const now = Date.now();
-    if (now - lastSavedAt < 250) return;
-    lastSavedAt = now;
 
     try {
         await backupCurrentState(action);
@@ -348,7 +347,8 @@ function moveP(pid, gid) {
     if(!state.judgeGroups[curUser.u]) state.judgeGroups[curUser.u] = {};
     if(gid) state.judgeGroups[curUser.u][pid] = gid;
     else delete state.judgeGroups[curUser.u][pid];
-    savePatch({ judgeGroups: state.judgeGroups }, 'move_player_group');
+    state.manualPots = calculateAutoPots();
+    savePatch({ judgeGroups: state.judgeGroups, manualPots: state.manualPots }, 'move_player_group_and_recalculate_pots');
 }
 
 // ... (ฟังก์ชัน Eval, Summary, Master เหมือนเดิมเพื่อความเสถียร)
@@ -386,7 +386,8 @@ function setScore(pid, sid, v) {
     if(!state.evals[curUser.u]) state.evals[curUser.u] = {};
     if(!state.evals[curUser.u][pid]) state.evals[curUser.u][pid] = {};
     state.evals[curUser.u][pid][sid] = v;
-    savePatch({ evals: state.evals }, 'set_score');
+    state.manualPots = calculateAutoPots();
+    savePatch({ evals: state.evals, manualPots: state.manualPots }, 'set_score_and_recalculate_pots');
 }
 
 function renderSummary() {
@@ -404,20 +405,51 @@ function renderSummary() {
     document.getElementById('rankCont').innerHTML = html;
 }
 
-function renderMasterSummary() {
+function buildMasterData() {
     const judges = state.users.filter(x => x.r === 'judge');
-    let mData = state.players.map(p => {
+    return state.players.map(p => {
         let s = 0, c = 0;
         judges.forEach(j => {
             if(state.evals[j.u] && state.evals[j.u][p.id]) {
                 const tot = Object.values(state.evals[j.u][p.id]).reduce((a,b)=>a+b, 0);
-                if(tot > 0) { s += (tot + meta[state.judgeGroups[j.u][p.id]||4].b); c++; }
+                if(tot > 0) {
+                    const groupBase = meta[(state.judgeGroups[j.u] && state.judgeGroups[j.u][p.id]) || 4].b;
+                    s += (tot + groupBase);
+                    c++;
+                }
             }
         });
-        return { ...p, avg: c>0 ? s/c : 0 };
+        return { ...p, avg: c>0 ? s/c : 0, judgeCount: c };
     });
-    if(Object.keys(state.manualPots).length === 0 && mData.length > 0) {
-        mData.sort((a,b)=>b.avg-a.avg).forEach((p,i) => state.manualPots[p.id] = (i < mData.length/2 ? 'upper' : 'lower'));
+}
+
+function calculateAutoPots() {
+    const ranked = buildMasterData()
+        .slice()
+        .sort((a,b) => (b.avg - a.avg) || String(a.name).localeCompare(String(b.name)));
+
+    const pots = {};
+    const cut = Math.ceil(ranked.length / 2);
+    ranked.forEach((p, i) => {
+        pots[p.id] = i < cut ? 'upper' : 'lower';
+    });
+    return pots;
+}
+
+function recalculatePots(showMessage = false) {
+    state.manualPots = calculateAutoPots();
+    savePatch({ manualPots: state.manualPots }, 'recalculate_pots');
+    renderMasterSummary();
+    renderPublicPots();
+    if(showMessage) confirmToast();
+}
+
+function renderMasterSummary() {
+    let mData = buildMasterData();
+    // ถ้ามีผู้เล่นใหม่หรือยังไม่มี pot ให้เติม pot อัตโนมัติทันที
+    const hasMissingPot = state.players.some(p => !state.manualPots[p.id]);
+    if((Object.keys(state.manualPots).length === 0 || hasMissingPot) && mData.length > 0) {
+        state.manualPots = calculateAutoPots();
     }
     const renderP = (title, type, target) => `
         <div class="glass p-6">

@@ -92,7 +92,12 @@
         <div id="tabAdminMaster" class="hidden max-w-5xl mx-auto space-y-10">
             <div class="flex justify-between items-center bg-blue-500/10 p-6 rounded-3xl border border-blue-500/20">
                 <h2 class="orbitron text-2xl font-black">MASTER CONTROL</h2>
-                <button onclick="publishPots()" class="bg-green-500 text-white px-8 py-3 rounded-xl font-black">PUBLISH</button>
+                <div class="flex gap-2 flex-wrap justify-end">
+                    <button onclick="exportBackup()" class="bg-slate-700 text-white px-5 py-3 rounded-xl font-black text-xs">EXPORT JSON</button>
+                    <button onclick="document.getElementById('importFile').click()" class="bg-yellow-500 text-black px-5 py-3 rounded-xl font-black text-xs">IMPORT JSON</button>
+                    <input id="importFile" type="file" accept="application/json" class="hidden" onchange="importBackup(event)">
+                    <button onclick="publishPots()" class="bg-green-500 text-white px-8 py-3 rounded-xl font-black">PUBLISH</button>
+                </div>
             </div>
             <div id="masterRankCont" class="grid grid-cols-1 md:grid-cols-2 gap-8"></div>
         </div>
@@ -116,7 +121,8 @@ const db = firebase.firestore();
 const stateDoc = db.collection('smashx').doc('main_state');
 
 // --- 2. STATE ---
-let state = {
+// Default state ใช้เฉพาะตอน document ยังไม่มีจริง ๆ เท่านั้น
+const DEFAULT_STATE = {
     players: [],
     users: [{u:'admin', p:'1234', r:'admin'}],
     evals: {},
@@ -125,40 +131,85 @@ let state = {
     isPublished: false
 };
 
+let state = { ...DEFAULT_STATE };
 let curUser = null;
 let curEvalG = 1;
+let isInitialLoaded = false;
+let lastSavedAt = 0;
 
-// --- 3. CORE SYNC: โหลด/อัปเดตข้อมูลจาก Firestore แบบ Real-time ---
-stateDoc.onSnapshot((snapshot) => {
-    if (snapshot.exists) {
-        state = snapshot.data();
-    } else {
-        // ครั้งแรกที่ยังไม่มีข้อมูลใน Firestore ให้สร้าง state เริ่มต้น
-        stateDoc.set(state);
+function normalizeState(data = {}) {
+    return {
+        ...DEFAULT_STATE,
+        ...data,
+        players: Array.isArray(data.players) ? data.players : [],
+        users: Array.isArray(data.users) && data.users.length ? data.users : DEFAULT_STATE.users,
+        evals: data.evals || {},
+        judgeGroups: data.judgeGroups || {},
+        manualPots: data.manualPots || {},
+        isPublished: !!data.isPublished
+    };
+}
+
+// สร้าง backup ก่อน save ทุกครั้ง เพื่อ rollback ได้
+async function backupCurrentState(action = 'manual_save') {
+    if (!isInitialLoaded) return;
+    try {
+        await db.collection('smashx_backups').add({
+            action,
+            by: curUser ? curUser.u : 'unknown',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            state: JSON.parse(JSON.stringify(state))
+        });
+    } catch (error) {
+        console.warn('Backup failed:', error);
+    }
+}
+
+// Save แบบใหม่: ส่งเฉพาะ field ที่แก้ และ merge เข้า document เดิม
+async function savePatch(patch, action = 'update') {
+    if (!patch || typeof patch !== 'object') {
+        alert('Save ถูกเรียกผิดรูปแบบ: ต้องส่งเฉพาะ field ที่ต้องการแก้');
+        return;
     }
 
-    // ป้องกัน Error หากข้อมูลบางตัวยังไม่มีใน Database
-    if(!state.players) state.players = [];
-    if(!state.users) state.users = [{u:'admin', p:'1234', r:'admin'}];
-    if(!state.judgeGroups) state.judgeGroups = {};
-    if(!state.evals) state.evals = {};
-    if(!state.manualPots) state.manualPots = {};
+    const now = Date.now();
+    if (now - lastSavedAt < 250) return;
+    lastSavedAt = now;
 
+    try {
+        await backupCurrentState(action);
+        await stateDoc.set({
+            ...patch,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: curUser ? curUser.u : 'unknown'
+        }, { merge: true });
+        renderPublicPots();
+    } catch (error) {
+        console.error('Save error:', error);
+        alert('บันทึกข้อมูลไม่สำเร็จ กรุณาเช็ก Firestore Rules');
+    }
+}
+
+// --- 3. CORE SYNC: โหลด/อัปเดตข้อมูลจาก Firestore แบบ Real-time ---
+stateDoc.onSnapshot(async (snapshot) => {
+    if (snapshot.exists) {
+        state = normalizeState(snapshot.data());
+    } else {
+        await stateDoc.set({
+            ...DEFAULT_STATE,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        state = normalizeState(DEFAULT_STATE);
+    }
+
+    isInitialLoaded = true;
     refreshActiveUI();
     renderPublicPots();
 }, (error) => {
     console.error('Firestore sync error:', error);
     alert('เชื่อมต่อ Firestore ไม่ได้ กรุณาเช็ก Rules หรือ Firebase Config');
 });
-
-function save() {
-    stateDoc.set(state)
-        .then(() => renderPublicPots())
-        .catch((error) => {
-            console.error('Save error:', error);
-            alert('บันทึกข้อมูลไม่สำเร็จ กรุณาเช็ก Firestore Rules');
-        });
-}
 
 // --- 4. NAVIGATION & LOGIN ---
 function login() {
@@ -214,7 +265,7 @@ function addP() {
     const name = input.value.trim();
     if(!name) return;
     state.players.push({ id: Date.now(), name: name });
-    save(); // ส่งขึ้น Cloud
+    savePatch({ players: state.players }, 'add_player'); // ส่งขึ้น Cloud
     input.value = '';
     confirmToast();
 }
@@ -222,7 +273,7 @@ function addP() {
 function delP(id) {
     if(confirm('ลบนักกีฬา?')) {
         state.players = state.players.filter(p => p.id !== id);
-        save();
+        savePatch({ players: state.players }, 'delete_player');
     }
 }
 
@@ -240,7 +291,7 @@ function addJ() {
     const p = document.getElementById('newJP').value.trim();
     if(!u || !p) return;
     state.users.push({ u, p, r: 'judge' });
-    save();
+    savePatch({ users: state.users }, 'add_judge');
     document.getElementById('newJU').value = '';
     document.getElementById('newJP').value = '';
 }
@@ -254,7 +305,7 @@ function renderJudges() {
     `).join('');
 }
 
-function delJ(u) { if(confirm('ลบกรรมการ?')) { state.users = state.users.filter(x => x.u !== u); save(); } }
+function delJ(u) { if(confirm('ลบกรรมการ?')) { state.users = state.users.filter(x => x.u !== u); savePatch({ users: state.users }, 'delete_judge'); } }
 
 // --- 6. JUDGE FUNCTIONS (ส่วนที่ทำให้เห็นชื่อข้ามเครื่อง) ---
 const meta = {
@@ -294,9 +345,10 @@ function renderGroups() {
 
 function moveP(pid, gid) {
     if(!pid) return;
+    if(!state.judgeGroups[curUser.u]) state.judgeGroups[curUser.u] = {};
     if(gid) state.judgeGroups[curUser.u][pid] = gid;
     else delete state.judgeGroups[curUser.u][pid];
-    save();
+    savePatch({ judgeGroups: state.judgeGroups }, 'move_player_group');
 }
 
 // ... (ฟังก์ชัน Eval, Summary, Master เหมือนเดิมเพื่อความเสถียร)
@@ -334,7 +386,7 @@ function setScore(pid, sid, v) {
     if(!state.evals[curUser.u]) state.evals[curUser.u] = {};
     if(!state.evals[curUser.u][pid]) state.evals[curUser.u][pid] = {};
     state.evals[curUser.u][pid][sid] = v;
-    save();
+    savePatch({ evals: state.evals }, 'set_score');
 }
 
 function renderSummary() {
@@ -380,8 +432,45 @@ function renderMasterSummary() {
     document.getElementById('masterRankCont').innerHTML = renderP('UPPER POT','upper','lower') + renderP('LOWER POT','lower','upper');
 }
 
-function swapP(id, t) { state.manualPots[id] = t; save(); }
-function publishPots() { state.isPublished = true; save(); confirmToast(); }
+function swapP(id, t) { state.manualPots[id] = t; savePatch({ manualPots: state.manualPots }, 'swap_pot'); }
+function publishPots() { state.isPublished = true; savePatch({ isPublished: true, manualPots: state.manualPots }, 'publish_pots'); confirmToast(); }
+function exportBackup() {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `smashx-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importBackup(event) {
+    const file = event.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const imported = normalizeState(JSON.parse(e.target.result));
+            if(!confirm('ยืนยัน Import Backup? ข้อมูลปัจจุบันจะถูกแทนที่ด้วยไฟล์นี้')) return;
+            await backupCurrentState('before_import_backup');
+            state = imported;
+            await stateDoc.set({
+                ...state,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedBy: curUser ? curUser.u : 'unknown',
+                restoredAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            confirmToast();
+        } catch (error) {
+            console.error('Import error:', error);
+            alert('ไฟล์ Backup ไม่ถูกต้อง');
+        } finally {
+            event.target.value = '';
+        }
+    };
+    reader.readAsText(file);
+}
+
 function renderPublicPots() {
     if(!state.isPublished) { document.getElementById('publicPots').innerHTML = "<p class='text-center opacity-30 orbitron'>WAITING FOR RESULTS</p>"; return; }
     const res = (type) => state.players.filter(p=>state.manualPots[p.id]===type).map(p=>`<p class='bg-white/5 p-3 rounded-xl text-center mb-2 font-bold'>${p.name}</p>`).join('');

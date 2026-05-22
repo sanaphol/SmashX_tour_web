@@ -366,7 +366,7 @@ function renderGroups() {
   document.getElementById('groupGrid').innerHTML = html;
 }
 
-function moveP(pid, gid) {
+async function moveP(pid, gid) {
   if (pid === null || pid === undefined || pid === '') return;
 
   const playerId = String(pid);
@@ -376,7 +376,7 @@ function moveP(pid, gid) {
   if (gid) {
     currentGroups[playerId] = gid;
   } else {
-    // ลบแบบ rebuild object เพื่อกันเคส delete แล้ว UI/cache ไม่เปลี่ยน
+    // ลบแบบ rebuild object เพื่อให้ object เปลี่ยนจริง และลบ key เก่าให้หมด
     Object.keys(currentGroups).forEach(k => {
       if (String(k) === playerId) delete currentGroups[k];
     });
@@ -387,10 +387,26 @@ function moveP(pid, gid) {
   lastRenderKey = '';
   renderCurrentOnly(true);
 
-  queueSave(
-    { judgeGroups: state.judgeGroups },
-    { immediate:true, backup:false, message: gid ? 'บันทึกกลุ่มแล้ว' : 'ลบออกจากกลุ่มแล้ว' }
-  );
+  // สำคัญ: ห้ามใช้ set(..., { merge:true }) กับ map ที่ถูกลบ key
+  // เพราะ Firestore จะ merge map แล้ว key เก่าอาจยังค้างอยู่
+  // ใช้ update ที่ top-level field judgeGroups เพื่อ replace ทั้ง map และ persist การลบจริง
+  try {
+    clearTimeout(pendingTimer);
+    if (window.__pendingPatch && window.__pendingPatch.judgeGroups) {
+      delete window.__pendingPatch.judgeGroups;
+    }
+    setSaveStatus('SAVING...');
+    await stateDoc.update({
+      judgeGroups: state.judgeGroups,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    setSaveStatus('SYNCED');
+    confirmToast(gid ? 'บันทึกกลุ่มแล้ว' : 'ลบออกจากกลุ่มแล้ว');
+  } catch (error) {
+    console.error('Save group error:', error);
+    setSaveStatus('SAVE ERROR');
+    alert('บันทึกกลุ่มไม่สำเร็จ กรุณาเช็ก Firestore Rules');
+  }
 }
 
 function renderEval() {

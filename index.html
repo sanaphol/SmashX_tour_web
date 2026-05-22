@@ -335,37 +335,49 @@ function renderJudges() {
 function renderGroups() {
   const u = curUser.u;
   if (!state.judgeGroups[u]) state.judgeGroups[u] = {};
-  const waiting = state.players.filter(p => !state.judgeGroups[u][p.id]);
+
+  // ใช้ player id เป็น string ให้ตรงกันทุกจุด ลดปัญหาชื่อค้างจาก key คนละ type
+  const groupOf = (playerId) => state.judgeGroups[u][String(playerId)];
+  const waiting = state.players.filter(p => !groupOf(p.id));
+
   let html = `<div class="lg:col-span-4 glass p-6 mb-4 text-center border-dashed border-2 border-white/10">
     <p class="text-xs orbitron text-slate-500 mb-3 uppercase">นักกีฬารอจัดกลุ่ม</p>
     <div class="flex flex-wrap justify-center gap-2">${waiting.length ? waiting.map(p => `<span class="bg-cyan-500/10 text-cyan-400 px-4 py-1.5 rounded-xl text-xs font-bold border border-cyan-500/20">${escapeHtml(p.name)}</span>`).join('') : '<span class="text-slate-700">ไม่มีข้อมูล</span>'}</div>
   </div>`;
   [1,2,3,4].forEach(g => {
-    const pInG = state.players.filter(p => state.judgeGroups[u][p.id] == g);
+    const pInG = state.players.filter(p => groupOf(p.id) == g);
     html += `<div class="glass p-6 space-y-4 border-b-4 ${meta[g].bc}">
       <h4 class="${meta[g].c} orbitron font-black">${meta[g].m} ${meta[g].n}</h4>
       <select onchange="moveP(this.value, ${g})" class="w-full bg-slate-900 border border-white/5 p-3 rounded-xl text-xs text-white outline-none">
         <option value="">+ เพิ่มนักกีฬา</option>${waiting.map(w => `<option value="${w.id}">${escapeHtml(w.name)}</option>`).join('')}
       </select>
-      <div class="space-y-2">${pInG.map(p => `<div class="flex justify-between bg-white/5 p-3 rounded-xl text-xs"><span>${escapeHtml(p.name)}</span><button onclick="moveP(${p.id}, null)" class="text-red-400">✕</button></div>`).join('')}</div>
+      <div class="space-y-2">${pInG.map(p => `<div class="flex justify-between bg-white/5 p-3 rounded-xl text-xs"><span>${escapeHtml(p.name)}</span><button onclick="moveP('${p.id}', null)" class="text-red-400">✕</button></div>`).join('')}</div>
     </div>`;
   });
   document.getElementById('groupGrid').innerHTML = html;
 }
 
 function moveP(pid, gid) {
-  if (!pid) return;
-  pid = String(pid);
-  if (!state.judgeGroups[curUser.u]) state.judgeGroups[curUser.u] = {};
-  if (gid) state.judgeGroups[curUser.u][pid] = gid;
-  else delete state.judgeGroups[curUser.u][pid];
+  if (pid === null || pid === undefined || pid === '') return;
+
+  const playerId = String(pid);
+  const judgeId = curUser.u;
+  if (!state.judgeGroups[judgeId]) state.judgeGroups[judgeId] = {};
+
+  // clone object ก่อนแก้ เพื่อให้ render key เปลี่ยนแน่นอน ไม่ค้างจาก object เดิม
+  state.judgeGroups = { ...state.judgeGroups, [judgeId]: { ...state.judgeGroups[judgeId] } };
+
+  if (gid) state.judgeGroups[judgeId][playerId] = gid;
+  else delete state.judgeGroups[judgeId][playerId];
+
+  lastRenderKey = '';
   renderCurrentOnly(true);
-  queueSave({ judgeGroups: state.judgeGroups }, { backup:false, message:'บันทึกกลุ่มแล้ว' });
+  queueSave({ judgeGroups: state.judgeGroups }, { immediate:true, backup:false, message:'บันทึกกลุ่มแล้ว' });
 }
 
 function renderEval() {
-  document.getElementById('evalTabs').innerHTML = [1,2,3,4].map(g => `<button onclick="curEvalG=${g}; lastRenderKey=''; renderEval();" class="flex-1 p-3.5 rounded-2xl border-2 orbitron text-[11px] font-black ${curEvalG===g ? 'bg-cyan-500 border-cyan-500 text-black':'bg-slate-900 border-white/5 text-slate-500'}">${meta[g].n}</button>`).join('');
-  const players = state.players.filter(p => state.judgeGroups[curUser.u] && state.judgeGroups[curUser.u][p.id] == curEvalG);
+  document.getElementById('evalTabs').innerHTML = [1,2,3,4].map(g => `<button onclick="curEvalG=${g}; lastRenderKey=''; renderCurrentOnly(true);" class="flex-1 p-3.5 rounded-2xl border-2 orbitron text-[11px] font-black ${curEvalG===g ? 'bg-cyan-500 border-cyan-500 text-black':'bg-slate-900 border-white/5 text-slate-500'}">${meta[g].n}</button>`).join('');
+  const players = state.players.filter(p => state.judgeGroups[curUser.u] && state.judgeGroups[curUser.u][String(p.id)] == curEvalG);
   document.getElementById('evalList').innerHTML = players.map(p => {
     const sc = (state.evals[curUser.u] && state.evals[curUser.u][p.id]) ? state.evals[curUser.u][p.id] : {};
     return `<div class="glass p-8 space-y-8 border-l-4 ${meta[curEvalG].bc}">
@@ -396,7 +408,7 @@ function calculatePlayerAverages() {
       if (ev) {
         const tot = Object.values(ev).reduce((a,b)=>a+Number(b||0),0);
         if (tot > 0) {
-          const group = state.judgeGroups?.[j.u]?.[p.id] || 4;
+          const group = state.judgeGroups?.[j.u]?.[String(p.id)] || 4;
           s += tot + meta[group].b;
           c++;
         }
@@ -419,7 +431,7 @@ function renderSummary() {
   const u = curUser.u;
   let html = `<h2 class="text-center orbitron text-3xl font-black text-white mb-8 uppercase">${escapeHtml(u)} RANKING</h2>`;
   [1,2,3,4].forEach(g => {
-    const players = state.players.filter(p => state.judgeGroups[u] && state.judgeGroups[u][p.id] == g);
+    const players = state.players.filter(p => state.judgeGroups[u] && state.judgeGroups[u][String(p.id)] == g);
     const ranked = players.map(p => {
       const sc = state.evals?.[u]?.[p.id] || {};
       const total = Object.values(sc).reduce((a,b)=>a+Number(b||0),0);
